@@ -71,7 +71,10 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)
 
     # Additional profile fields from your existing model.
-    profile_image = models.URLField(blank=True)
+    profile_image = models.ImageField(
+    upload_to="profiles/users/",
+    blank=True,
+    )
     phone = models.CharField(max_length=30, blank=True)
     bio = models.TextField(blank=True)
 
@@ -95,7 +98,10 @@ class Student(models.Model):
         related_name="student_profile",
     )
     username = models.CharField(max_length=30, unique=True)
-    profile_picture_url = models.URLField(blank=True)
+    profile_picture_url = models.ImageField(
+    upload_to="profiles/students/",
+    blank=True,
+    )
     bio = models.TextField(blank=True)
     date_of_birth = models.DateField(null=True, blank=True)
     grade_level = models.CharField(max_length=50, blank=True)
@@ -133,7 +139,10 @@ class Teacher(models.Model):
     legal_name_on_documents = models.CharField(max_length=200, blank=True)
     cv_url = models.URLField(blank=True)
     degree_certificate_url = models.URLField(blank=True)
-    profile_picture_url = models.URLField(blank=True)
+    profile_picture_url = models.ImageField(
+    upload_to="profiles/teachers/",
+    blank=True,
+    )
     headline = models.CharField(max_length=200, blank=True)
     years_of_experience = models.CharField(max_length=50, blank=True)
     bio = models.TextField(blank=True)
@@ -163,7 +172,10 @@ class AdminProfile(models.Model):
         on_delete=models.CASCADE,
         related_name="admin_profile",
     )
-    profile_picture_url = models.URLField(blank=True)
+    profile_picture_url = models.ImageField(
+    upload_to="profiles/admins/",
+    blank=True,
+    )
     admin_level = models.CharField(max_length=50, default="standard")
 
     class Meta:

@@ -1,0 +1,589 @@
+openapi: 3.0.3
+info:
+  title: KONNECT Virtual Classroom API
+  version: 1.0.0
+  description: API for the KONNECT Virtual Classroom platform. Provides authenticated
+    endpoints for courses, enrollments, live sessions, and related classroom features.
+    Each endpoint documents its purpose, permissions, inputs, and responses.
+paths:
+  /api/attendance/:
+    get:
+      operationId: attendance_list
+      description: Lists attendance records visible to the authenticated user. Students
+        can view their own records, teachers can view records for their own courses,
+        and administrators can view all records.
+      summary: List attendance records
+      tags:
+      - Attendance
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Attendance'
+          description: ''
+  /api/attendance/{id}/:
+    get:
+      operationId: attendance_retrieve
+      description: Returns one attendance record if the user is authorized to see
+        it.
+      summary: Retrieve an attendance record
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - Attendance
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attendance'
+          description: ''
+        '404':
+          description: Record not found or not accessible.
+  /api/attendance/sessions/{session_id}/finalize/:
+    post:
+      operationId: attendance_sessions_finalize_create
+      description: Allows a teacher who owns the course or an administrator to finalize
+        attendance once the cutoff time has been reached. Students are marked present
+        if they joined and had not left before the cutoff; otherwise they are marked
+        absent. Repeated requests do not overwrite finalized records. This endpoint
+        supports manual triggering until scheduled automation is added.
+      summary: Finalize attendance at the session cutoff
+      parameters:
+      - in: path
+        name: session_id
+        schema:
+          type: string
+        required: true
+      tags:
+      - Attendance
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+                  finalized_count:
+                    type: integer
+          description: Attendance finalization summary.
+        '400':
+          description: The attendance cutoff has not been reached.
+        '403':
+          description: Only the course teacher or an administrator can finalize attendance.
+        '404':
+          description: Session not found.
+  /api/attendance/sessions/{session_id}/join/:
+    post:
+      operationId: attendance_sessions_join_create
+      description: Records the authenticated student's join time for a live session.
+        The student must be actively enrolled and must join between the scheduled
+        start and the 15-minute joining deadline. Repeated join requests do not create
+        duplicate records. This endpoint records an API event; until a trusted video-provider
+        integration exists, it does not verify actual presence in a video room.
+      summary: Register a student's session join
+      parameters:
+      - in: path
+        name: session_id
+        schema:
+          type: string
+        required: true
+      tags:
+      - Attendance
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attendance'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attendance'
+          description: ''
+        '400':
+          description: The session has not started or attendance is already finalized.
+        '403':
+          description: The user is not enrolled or the joining deadline passed.
+        '404':
+          description: Session not found or not accessible.
+  /api/attendance/sessions/{session_id}/leave/:
+    post:
+      operationId: attendance_sessions_leave_create
+      description: Records the authenticated student's departure time. The student
+        must have a previous attendance record for this session. If the student leaves
+        before the attendance cutoff, the cutoff process will mark the record absent.
+        Leaving after the cutoff does not change an already finalized result.
+      summary: Register a student's session departure
+      parameters:
+      - in: path
+        name: session_id
+        schema:
+          type: string
+        required: true
+      tags:
+      - Attendance
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attendance'
+          description: ''
+        '400':
+          description: No join record exists or attendance is already finalized.
+        '403':
+          description: The user is not enrolled in the course.
+        '404':
+          description: Session or attendance record not found.
+  /api/live-sessions/:
+    get:
+      operationId: live_sessions_list
+      description: Returns live sessions the authenticated user is allowed to see.
+        Administrators can see all sessions, teachers can see sessions for their own
+        courses, and students can see sessions for courses in which they have an active
+        enrollment.
+      summary: List accessible live sessions
+      tags:
+      - Live Sessions
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LiveSession'
+          description: ''
+    post:
+      operationId: live_sessions_create
+      description: Creates a live session for a course. Teachers may schedule sessions
+        only for their own approved courses. Administrators may create sessions for
+        any course. The request must include course, starts_at, and ends_at. Sessions
+        must be scheduled in the future and last more than 15 minutes. Provider room
+        and join-link fields are read-only.
+      summary: Schedule a live session
+      tags:
+      - Live Sessions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LiveSession'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LiveSession'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LiveSession'
+        required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LiveSession'
+          description: ''
+        '400':
+          description: Invalid or missing session data.
+        '401':
+          description: Authentication is required.
+        '403':
+          description: The user cannot schedule this session.
+  /api/live-sessions/{id}/:
+    get:
+      operationId: live_sessions_retrieve
+      description: Returns details for one live session. The session must be accessible
+        to the authenticated user's role and course access.
+      summary: Retrieve a live session
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - Live Sessions
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LiveSession'
+          description: ''
+        '404':
+          description: Session not found or not accessible.
+    put:
+      operationId: live_sessions_update
+      description: Updates a live session using the complete writable request fields.
+        The user must have access to the session. Read-only provider and calculated
+        deadline fields cannot be changed through this endpoint.
+      summary: Replace live session details
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - Live Sessions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LiveSession'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LiveSession'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LiveSession'
+        required: true
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LiveSession'
+          description: ''
+        '400':
+          description: Invalid session data.
+        '401':
+          description: Authentication is required.
+        '404':
+          description: Session not found or not accessible.
+    patch:
+      operationId: live_sessions_partial_update
+      description: Updates only the supplied writable fields of an accessible session.
+        Session times are validated when provided.
+      summary: Partially update a live session
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - Live Sessions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedLiveSession'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedLiveSession'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedLiveSession'
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LiveSession'
+          description: ''
+        '400':
+          description: Invalid session data.
+        '401':
+          description: Authentication is required.
+        '404':
+          description: Session not found or not accessible.
+    delete:
+      operationId: live_sessions_destroy
+      description: Deletes an accessible live session. Related attendance records
+        are also deleted according to the model's cascade relationship.
+      summary: Delete a live session
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - Live Sessions
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '204':
+          description: Session deleted successfully.
+        '401':
+          description: Authentication is required.
+        '404':
+          description: Session not found or not accessible.
+  /api/live-sessions/{id}/join/:
+    post:
+      operationId: live_sessions_join_create
+      description: Checks whether the session is within its permitted joining window.
+        Joining is permitted from the scheduled start until 15 minutes after the start.
+        This endpoint does not create a video connection. Until a video provider is
+        configured, it returns HTTP 503 even when the timing checks pass.
+      summary: Check live-session joining eligibility
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+        required: true
+      tags:
+      - Live Sessions
+      security:
+      - cookieAuth: []
+      - basicAuth: []
+      responses:
+        '503':
+          description: Video joining is not configured. The response includes video_provider_configured=false.
+        '400':
+          description: The session has not started yet.
+        '403':
+          description: The joining deadline has passed.
+        '401':
+          description: Authentication is required.
+        '404':
+          description: Session not found or not accessible.
+components:
+  schemas:
+    Attendance:
+      type: object
+      description: Read-only attendance details for the KONNECT frontend.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        live_session:
+          type: string
+          format: uuid
+          readOnly: true
+        session_course_title:
+          type: string
+          readOnly: true
+          description: Title of the course associated with this session.
+        student:
+          type: string
+          format: uuid
+          readOnly: true
+        student_username:
+          type: string
+          readOnly: true
+          description: Username or student identifier.
+        student_name:
+          type: string
+          readOnly: true
+          description: Full name of the student.
+        status:
+          allOf:
+          - $ref: '#/components/schemas/StatusEnum'
+          readOnly: true
+        joined_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        left_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        auto_marked:
+          type: boolean
+          readOnly: true
+        marked_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+      required:
+      - auto_marked
+      - id
+      - joined_at
+      - left_at
+      - live_session
+      - marked_at
+      - session_course_title
+      - status
+      - student
+      - student_name
+      - student_username
+    LiveSession:
+      type: object
+      description: |-
+        Serializes live session data for the KONNECT frontend.
+
+        Returns session timing, course information, attendance deadlines,
+        and whether the joining window is open. This serializer does not
+        establish a video connection to 100ms or another provider.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        course:
+          type: string
+          format: uuid
+          description: UUID of the course for this live session.
+        course_title:
+          type: string
+          readOnly: true
+          description: Title of the course associated with this session.
+        provider_room_id:
+          type: string
+          readOnly: true
+        join_link:
+          type: string
+          format: uri
+          readOnly: true
+        tools_enabled:
+          description: JSON list of session tools enabled for this session.
+        starts_at:
+          type: string
+          format: date-time
+          description: Scheduled start date and time, including timezone.
+        ends_at:
+          type: string
+          format: date-time
+          description: Scheduled end date and time, including timezone.
+        join_deadline:
+          type: string
+          format: date-time
+          readOnly: true
+        attendance_cutoff:
+          type: string
+          format: date-time
+          readOnly: true
+        join_window_open:
+          type: boolean
+          readOnly: true
+          description: True when the current time is between the session start and
+            its joining deadline, inclusive.
+        video_provider_configured:
+          type: boolean
+          readOnly: true
+          description: Indicates whether a video provider room is configured. An open
+            joining window does not mean video joining works.
+      required:
+      - attendance_cutoff
+      - course
+      - course_title
+      - ends_at
+      - id
+      - join_deadline
+      - join_link
+      - join_window_open
+      - provider_room_id
+      - starts_at
+      - video_provider_configured
+    PatchedLiveSession:
+      type: object
+      description: |-
+        Serializes live session data for the KONNECT frontend.
+
+        Returns session timing, course information, attendance deadlines,
+        and whether the joining window is open. This serializer does not
+        establish a video connection to 100ms or another provider.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        course:
+          type: string
+          format: uuid
+          description: UUID of the course for this live session.
+        course_title:
+          type: string
+          readOnly: true
+          description: Title of the course associated with this session.
+        provider_room_id:
+          type: string
+          readOnly: true
+        join_link:
+          type: string
+          format: uri
+          readOnly: true
+        tools_enabled:
+          description: JSON list of session tools enabled for this session.
+        starts_at:
+          type: string
+          format: date-time
+          description: Scheduled start date and time, including timezone.
+        ends_at:
+          type: string
+          format: date-time
+          description: Scheduled end date and time, including timezone.
+        join_deadline:
+          type: string
+          format: date-time
+          readOnly: true
+        attendance_cutoff:
+          type: string
+          format: date-time
+          readOnly: true
+        join_window_open:
+          type: boolean
+          readOnly: true
+          description: True when the current time is between the session start and
+            its joining deadline, inclusive.
+        video_provider_configured:
+          type: boolean
+          readOnly: true
+          description: Indicates whether a video provider room is configured. An open
+            joining window does not mean video joining works.
+    StatusEnum:
+      enum:
+      - present
+      - absent
+      type: string
+      description: |-
+        * `present` - Present
+        * `absent` - Absent
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid
