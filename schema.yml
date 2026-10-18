@@ -16,8 +16,7 @@ paths:
       tags:
       - Attendance
       security:
-      - cookieAuth: []
-      - basicAuth: []
+      - jwtAuth: []
       responses:
         '200':
           content:
@@ -42,8 +41,7 @@ paths:
       tags:
       - Attendance
       security:
-      - cookieAuth: []
-      - basicAuth: []
+      - jwtAuth: []
       responses:
         '200':
           content:
@@ -71,8 +69,7 @@ paths:
       tags:
       - Attendance
       security:
-      - cookieAuth: []
-      - basicAuth: []
+      - jwtAuth: []
       responses:
         '200':
           content:
@@ -109,8 +106,7 @@ paths:
       tags:
       - Attendance
       security:
-      - cookieAuth: []
-      - basicAuth: []
+      - jwtAuth: []
       responses:
         '200':
           content:
@@ -147,8 +143,7 @@ paths:
       tags:
       - Attendance
       security:
-      - cookieAuth: []
-      - basicAuth: []
+      - jwtAuth: []
       responses:
         '200':
           content:
@@ -173,8 +168,7 @@ paths:
       tags:
       - Live Sessions
       security:
-      - cookieAuth: []
-      - basicAuth: []
+      - jwtAuth: []
       responses:
         '200':
           content:
@@ -207,8 +201,7 @@ paths:
               $ref: '#/components/schemas/LiveSession'
         required: true
       security:
-      - cookieAuth: []
-      - basicAuth: []
+      - jwtAuth: []
       responses:
         '201':
           content:
@@ -237,8 +230,7 @@ paths:
       tags:
       - Live Sessions
       security:
-      - cookieAuth: []
-      - basicAuth: []
+      - jwtAuth: []
       responses:
         '200':
           content:
@@ -275,8 +267,7 @@ paths:
               $ref: '#/components/schemas/LiveSession'
         required: true
       security:
-      - cookieAuth: []
-      - basicAuth: []
+      - jwtAuth: []
       responses:
         '200':
           content:
@@ -315,8 +306,7 @@ paths:
             schema:
               $ref: '#/components/schemas/PatchedLiveSession'
       security:
-      - cookieAuth: []
-      - basicAuth: []
+      - jwtAuth: []
       responses:
         '200':
           content:
@@ -344,8 +334,7 @@ paths:
       tags:
       - Live Sessions
       security:
-      - cookieAuth: []
-      - basicAuth: []
+      - jwtAuth: []
       responses:
         '204':
           description: Session deleted successfully.
@@ -370,8 +359,7 @@ paths:
       tags:
       - Live Sessions
       security:
-      - cookieAuth: []
-      - basicAuth: []
+      - jwtAuth: []
       responses:
         '503':
           description: Video joining is not configured. The response includes video_provider_configured=false.
@@ -383,6 +371,90 @@ paths:
           description: Authentication is required.
         '404':
           description: Session not found or not accessible.
+  /api/profile/picture/:
+    post:
+      operationId: upload_my_profile_picture
+      description: Uploads or replaces the authenticated user's profile picture. Send
+        multipart/form-data with a 'profile_picture' image file. Maximum file size
+        is 5 MB. The API updates the user's picture and the matching Student, Teacher,
+        or AdminProfile picture. Authentication is required; users cannot upload pictures
+        for other accounts.
+      summary: Upload my profile picture
+      tags:
+      - Profiles
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProfilePictureUpload'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ProfilePictureUpload'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Profile picture uploaded successfully. Returns the user picture
+            URL and the role-specific profile URL when a matching profile exists.
+        '400':
+          description: Missing, invalid, or oversized image.
+        '401':
+          description: Authentication credentials were not provided or are invalid.
+  /api/token/:
+    post:
+      operationId: token_create
+      description: |-
+        Takes a set of user credentials and returns an access and refresh JSON web
+        token pair to prove the authentication of those credentials.
+      tags:
+      - token
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPair'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPair'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPair'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenObtainPair'
+          description: ''
+  /api/token/refresh/:
+    post:
+      operationId: token_refresh_create
+      description: |-
+        Takes a refresh type JSON web token and returns an access type JSON web
+        token if the refresh token is valid.
+      tags:
+      - token
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenRefresh'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefresh'
+          description: ''
 components:
   schemas:
     Attendance:
@@ -571,6 +643,15 @@ components:
           readOnly: true
           description: Indicates whether a video provider room is configured. An open
             joining window does not mean video joining works.
+    ProfilePictureUpload:
+      type: object
+      properties:
+        profile_picture:
+          type: string
+          format: uri
+          description: An image file to use as the profile picture.
+      required:
+      - profile_picture
     StatusEnum:
       enum:
       - present
@@ -579,11 +660,40 @@ components:
       description: |-
         * `present` - Present
         * `absent` - Absent
+    TokenObtainPair:
+      type: object
+      properties:
+        email:
+          type: string
+          writeOnly: true
+        password:
+          type: string
+          writeOnly: true
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+          readOnly: true
+      required:
+      - access
+      - email
+      - password
+      - refresh
+    TokenRefresh:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+          writeOnly: true
+      required:
+      - access
+      - refresh
   securitySchemes:
-    basicAuth:
+    jwtAuth:
       type: http
-      scheme: basic
-    cookieAuth:
-      type: apiKey
-      in: cookie
-      name: sessionid
+      scheme: bearer
+      bearerFormat: JWT
