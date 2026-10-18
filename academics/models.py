@@ -94,3 +94,92 @@ class Enrollment(models.Model):
 
     def __str__(self):
         return f"{self.student} - {self.course}"
+
+class LiveSession(models.Model):
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+    )
+    course = models.ForeignKey(
+        Course,
+        on_delete=models.CASCADE,
+        related_name="live_sessions",
+    )
+
+    # The 100ms room identifier used by the backend
+    provider_room_id = models.CharField(
+        max_length=255,
+        blank=True,
+    )
+
+    join_link = models.URLField(max_length=1000, blank=True)
+    tools_enabled = models.JSONField(default=list, blank=True)
+
+    starts_at = models.DateTimeField()
+    ends_at = models.DateTimeField()
+    join_deadline = models.DateTimeField()
+    attendance_cutoff = models.DateTimeField()
+
+    class Meta:
+        db_table = "live_sessions"
+        ordering = ["starts_at"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(ends_at__gt=models.F("starts_at")),
+                name="live_session_end_after_start",
+            ),
+        ]
+
+    def save(self, *args, **kwargs):
+        from datetime import timedelta
+
+        self.join_deadline = self.starts_at + timedelta(minutes=15)
+        self.attendance_cutoff = self.ends_at - timedelta(minutes=15)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.course.title} - {self.starts_at}"
+
+
+class Attendance(models.Model):
+    class Status(models.TextChoices):
+        PRESENT = "present", "Present"
+        ABSENT = "absent", "Absent"
+
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+    )
+    live_session = models.ForeignKey(
+        LiveSession,
+        on_delete=models.CASCADE,
+        related_name="attendance_records",
+    )
+    student = models.ForeignKey(
+        "accounts.Student",
+        on_delete=models.CASCADE,
+        related_name="attendance_records",
+    )
+    status = models.CharField(
+        max_length=10,
+        choices=Status.choices,
+        default=Status.ABSENT,
+    )
+    joined_at = models.DateTimeField(null=True, blank=True)
+    left_at = models.DateTimeField(null=True, blank=True)
+    auto_marked = models.BooleanField(default=False)
+    marked_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "attendance"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["live_session", "student"],
+                name="unique_session_student_attendance",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.student} - {self.live_session}"
