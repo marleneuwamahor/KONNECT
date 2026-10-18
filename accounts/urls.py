@@ -8,7 +8,7 @@ from rest_framework_simplejwt.views import (
 from .profile_views import ProfilePictureUploadView
 from .registration_views import StudentRegistrationView
 from .api_views import StudentViewSet, TeacherViewSet
-
+from .teacher_registration_views import TeacherRegistrationView
 
 router = DefaultRouter()
 router.register("students", StudentViewSet, basename="student")
@@ -24,6 +24,11 @@ urlpatterns = [
         ProfilePictureUploadView.as_view(),
         name="profile-picture-upload",
     ),
+path(
+    "teachers/register/",
+    TeacherRegistrationView.as_view(),
+    name="teacher-register",
+),
 ]
 
 urlpatterns += router.urls
