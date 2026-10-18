@@ -136,3 +136,19 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = "accounts.User"
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "KONNECT Virtual Classroom API",
+    "DESCRIPTION": (
+        "API for the KONNECT Virtual Classroom platform. "
+        "Provides authenticated endpoints for courses, enrollments, "
+        "live sessions, and related classroom features. "
+        "Each endpoint documents its purpose, permissions, inputs, "
+        "and responses."
+    ),
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+}
+REST_FRAMEWORK = {
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
