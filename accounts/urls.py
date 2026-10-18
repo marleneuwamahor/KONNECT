@@ -5,23 +5,24 @@ from rest_framework_simplejwt.views import (
 )
 
 from .profile_views import ProfilePictureUploadView
+from .registration_views import StudentRegistrationView
 
 urlpatterns = [
-    # Obtain an access token and a refresh token.
+    path(
+        "register/",
+        StudentRegistrationView.as_view(),
+        name="student-register",
+    ),
     path(
         "token/",
         TokenObtainPairView.as_view(),
         name="token_obtain_pair",
     ),
-
-    # Obtain a new access token using a refresh token.
     path(
         "token/refresh/",
         TokenRefreshView.as_view(),
         name="token_refresh",
     ),
-
-    # Upload the authenticated user's profile picture.
     path(
         "profile/picture/",
         ProfilePictureUploadView.as_view(),

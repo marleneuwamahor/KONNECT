@@ -401,6 +401,32 @@ paths:
           description: Missing, invalid, or oversized image.
         '401':
           description: Authentication credentials were not provided or are invalid.
+  /api/register/:
+    post:
+      operationId: register_create
+      tags:
+      - register
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudentRegistration'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StudentRegistration'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StudentRegistration'
+        required: true
+      security:
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentRegistration'
+          description: ''
   /api/token/:
     post:
       operationId: token_create
@@ -660,6 +686,30 @@ components:
       description: |-
         * `present` - Present
         * `absent` - Absent
+    StudentRegistration:
+      type: object
+      properties:
+        full_name:
+          type: string
+          maxLength: 150
+        email:
+          type: string
+          format: email
+        username:
+          type: string
+          maxLength: 30
+        password:
+          type: string
+          writeOnly: true
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+      required:
+      - email
+      - full_name
+      - password
+      - username
     TokenObtainPair:
       type: object
       properties:
