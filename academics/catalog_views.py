@@ -4,6 +4,7 @@ from rest_framework import status, viewsets
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from drf_spectacular.utils import extend_schema, extend_schema_view
 
 from .catalog_serializers import (
     CourseAPISerializer,
@@ -12,12 +13,53 @@ from .catalog_serializers import (
 from .models import Course, Enrollment
 
 
+@extend_schema_view(
+    list=extend_schema(
+        tags=["Courses"],
+        summary="List courses",
+        description=(
+            "Lists courses visible to the authenticated user. "
+            "Administrators can view all courses, teachers can view "
+            "their own courses, and students can view approved public "
+            "courses and approved courses in which they are actively enrolled."
+        ),
+    ),
+    retrieve=extend_schema(
+        tags=["Courses"],
+        summary="Retrieve a course",
+        description=(
+            "Returns one course if it is visible to the authenticated user."
+        ),
+    ),
+    create=extend_schema(
+        tags=["Courses"],
+        summary="Create a course",
+        description=(
+            "Creates a course. Verified active teachers create courses "
+            "for themselves and the course starts as a draft. Administrators "
+            "must provide the UUID of an existing verified teacher with an "
+            "active account. Students cannot create courses."
+        ),
+    ),
+    update=extend_schema(
+        tags=["Courses"],
+        summary="Replace a course",
+        description="Administrators can replace an existing course record.",
+    ),
+    partial_update=extend_schema(
+        tags=["Courses"],
+        summary="Partially update a course",
+        description="Administrators can update selected course fields.",
+    ),
+    destroy=extend_schema(
+        tags=["Courses"],
+        summary="Delete a course",
+        description="Administrators can delete a course.",
+    ),
+)
 class CourseViewSet(viewsets.ModelViewSet):
     """
-    Admins can manage courses.
-    Teachers can create courses for themselves.
-    Students can view approved public courses and approved courses
-    in which they are actively enrolled.
+    Manage courses with role-based access.
     """
 
     serializer_class = CourseAPISerializer
@@ -55,24 +97,47 @@ class CourseViewSet(viewsets.ModelViewSet):
         user = self.request.user
 
         if user.role == "admin":
-            serializer.save()
+            teacher = serializer.validated_data.get("teacher")
+
+            if teacher is None:
+                raise ValidationError(
+                    {
+                        "teacher": (
+                            "Administrators must select an existing "
+                            "verified teacher with an active account."
+                        )
+                    }
+                )
+
+            serializer.save(
+                teacher=teacher,
+                status=Course.Status.DRAFT,
+                approved_by=None,
+            )
             return
 
         if user.role != "teacher":
             raise PermissionDenied(
-                "Only teachers and administrators can create courses."
+                "Only verified teachers and administrators can create courses."
             )
 
         try:
             teacher = user.teacher_profile
-        except Exception:
+        except user._meta.model.DoesNotExist:
             raise PermissionDenied("Your teacher profile was not found.")
 
-        if teacher.verification_status != "verified":
+        if (
+            teacher.verification_status != "verified"
+            or user.status != "active"
+            or not user.is_active
+        ):
             raise PermissionDenied(
-                "Your teacher account must be verified before creating courses."
+                "Your teacher account must be active and verified "
+                "before creating courses."
             )
 
+        # Always assign the authenticated teacher. Ignore any teacher
+        # UUID submitted by the client for a teacher-created course.
         serializer.save(
             teacher=teacher,
             status=Course.Status.DRAFT,
@@ -103,10 +168,7 @@ class CourseViewSet(viewsets.ModelViewSet):
 
 class EnrollmentViewSet(viewsets.ModelViewSet):
     """
-    Students can enroll themselves in approved public courses.
-    Students can view their own enrollments.
-    Teachers can view enrollments for their courses.
-    Administrators can view and manage all enrollments.
+    Manage student course enrollments with role-based access.
     """
 
     serializer_class = EnrollmentAPISerializer
@@ -148,7 +210,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         if request.user.role == "student":
             try:
                 own_profile = request.user.student_profile
-            except Exception:
+            except request.user._meta.model.DoesNotExist:
                 raise PermissionDenied(
                     "Your student profile was not found."
                 )
