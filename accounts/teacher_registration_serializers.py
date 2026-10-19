@@ -1,4 +1,3 @@
-
 from django.contrib.auth.password_validation import validate_password
 from django.db import transaction
 from rest_framework import serializers
@@ -69,18 +68,17 @@ class TeacherRegistrationSerializer(serializers.Serializer):
 
     @transaction.atomic
     def create(self, validated_data):
-        password = validated_data.pop("password")
-
+        raw_password = validated_data.pop("password")
         full_name = validated_data.pop("full_name")
         email = validated_data.pop("email")
 
         user = User.objects.create_user(
             email=email,
-            password=password,
+            raw_password=raw_password,
             full_name=full_name,
             role=User.Role.TEACHER,
-            status=User.Status.ACTIVE,
-            is_active=True,
+            status=User.Status.PENDING,
+            is_active=False,
         )
 
         teacher = Teacher.objects.create(

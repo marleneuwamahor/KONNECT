@@ -12,7 +12,7 @@ class ProfilePictureUploadSerializer(serializers.Serializer):
     )
 
     def validate_profile_picture(self, image):
-        max_size = 5 * 1024 * 1024  # 5 MB
+        max_size = 5 * 1024 * 1024
 
         if image.size > max_size:
             raise serializers.ValidationError(
@@ -52,18 +52,16 @@ class StudentRegistrationSerializer(serializers.Serializer):
 
     @transaction.atomic
     def create(self, validated_data):
-        password = validated_data.pop("password")
+        raw_password = validated_data.pop("password")
         date_of_birth = validated_data.pop("date_of_birth", None)
 
         user = User.objects.create_user(
-            password=password,
+            email=validated_data["email"],
+            raw_password=raw_password,
             role=User.Role.STUDENT,
-            status=User.Status.ACTIVE,
-            is_active=True,
-            **{
-                "full_name": validated_data["full_name"],
-                "email": validated_data["email"],
-            },
+            status=User.Status.PENDING,
+            is_active=False,
+            full_name=validated_data["full_name"],
         )
 
         Student.objects.create(

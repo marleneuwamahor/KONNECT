@@ -1,4 +1,3 @@
-
 import uuid
 
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
@@ -12,21 +11,23 @@ from django.utils import timezone
 class UserManager(BaseUserManager):
     use_in_migrations = True
 
-    def create_user(self, email, password=None, **extra_fields):
+    def create_user(self, email, raw_password=None, **extra_fields):
         if not email:
             raise ValueError("Users must have an email address.")
 
         email = self.normalize_email(email)
         user = self.model(email=email, **extra_fields)
-        user.set_password(password)
+        if raw_password is not None:
+            user.set_password(raw_password)
         user.save(using=self._db)
         return user
 
-    def create_superuser(self, email, password=None, **extra_fields):
+    def create_superuser(self, email, raw_password=None, **extra_fields):
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
         extra_fields.setdefault("status", User.Status.ACTIVE)
         extra_fields.setdefault("role", User.Role.ADMIN)
+        extra_fields.setdefault("is_active", True)
 
         if extra_fields.get("is_staff") is not True:
             raise ValueError("A superuser must have is_staff=True.")
@@ -34,7 +35,10 @@ class UserManager(BaseUserManager):
         if extra_fields.get("is_superuser") is not True:
             raise ValueError("A superuser must have is_superuser=True.")
 
-        return self.create_user(email, password, **extra_fields)
+        if extra_fields.get("role") != User.Role.ADMIN:
+            raise ValueError("A superuser must have the admin role.")
+
+        return self.create_user(email, raw_password, **extra_fields)
 
 
 class User(AbstractBaseUser, PermissionsMixin):
@@ -44,11 +48,17 @@ class User(AbstractBaseUser, PermissionsMixin):
         STUDENT = "student", "Student"
 
     class Status(models.TextChoices):
+        PENDING = "pending", "Pending Approval"
         ACTIVE = "active", "Active"
         INACTIVE = "inactive", "Inactive"
+        REJECTED = "rejected", "Rejected"
         SUSPENDED = "suspended", "Suspended"
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+    )
     managed_by = models.ForeignKey(
         "accounts.AdminProfile",
         on_delete=models.SET_NULL,
@@ -66,14 +76,12 @@ class User(AbstractBaseUser, PermissionsMixin):
     )
     created_at = models.DateTimeField(default=timezone.now)
 
-    # Django authentication and authorization fields.
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
 
-    # Additional profile fields from your existing model.
     profile_image = models.ImageField(
-    upload_to="profiles/users/",
-    blank=True,
+        upload_to="profiles/users/",
+        blank=True,
     )
     phone = models.CharField(max_length=30, blank=True)
     bio = models.TextField(blank=True)
@@ -91,7 +99,11 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 
 class Student(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+    )
     user = models.OneToOneField(
         User,
         on_delete=models.CASCADE,
@@ -99,8 +111,8 @@ class Student(models.Model):
     )
     username = models.CharField(max_length=30, unique=True)
     profile_picture_url = models.ImageField(
-    upload_to="profiles/students/",
-    blank=True,
+        upload_to="profiles/students/",
+        blank=True,
     )
     bio = models.TextField(blank=True)
     date_of_birth = models.DateField(null=True, blank=True)
@@ -119,7 +131,11 @@ class Teacher(models.Model):
         VERIFIED = "verified", "Verified"
         REJECTED = "rejected", "Rejected"
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+    )
     user = models.OneToOneField(
         User,
         on_delete=models.CASCADE,
@@ -140,8 +156,8 @@ class Teacher(models.Model):
     cv_url = models.URLField(blank=True)
     degree_certificate_url = models.URLField(blank=True)
     profile_picture_url = models.ImageField(
-    upload_to="profiles/teachers/",
-    blank=True,
+        upload_to="profiles/teachers/",
+        blank=True,
     )
     headline = models.CharField(max_length=200, blank=True)
     years_of_experience = models.CharField(max_length=50, blank=True)
@@ -162,21 +178,31 @@ class Teacher(models.Model):
         db_table = "teachers"
 
     def __str__(self):
-        return f"{self.display_name or self.full_legal_name} - {self.user.email}"
+        return (
+            f"{self.display_name or self.full_legal_name} "
+            f"- {self.user.email}"
+        )
 
 
 class AdminProfile(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+    )
     user = models.OneToOneField(
         User,
         on_delete=models.CASCADE,
         related_name="admin_profile",
     )
     profile_picture_url = models.ImageField(
-    upload_to="profiles/admins/",
-    blank=True,
+        upload_to="profiles/admins/",
+        blank=True,
     )
-    admin_level = models.CharField(max_length=50, default="standard")
+    admin_level = models.CharField(
+        max_length=50,
+        default="standard",
+    )
 
     class Meta:
         db_table = "admin_profiles"
