@@ -260,3 +260,87 @@ class Submission(models.Model):
 
     def __str__(self):
         return f"{self.student} - {self.assignment.title}"
+class Exam(models.Model):
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+    )
+    course = models.ForeignKey(
+        Course,
+        on_delete=models.CASCADE,
+        related_name="exams",
+    )
+    title = models.CharField(max_length=255)
+    exam_date = models.DateTimeField()
+    duration_minutes = models.PositiveIntegerField(
+        validators=[MinValueValidator(1)],
+    )
+    total_marks = models.PositiveIntegerField(
+        validators=[MinValueValidator(1)],
+    )
+
+    class Meta:
+        db_table = "exams"
+        ordering = ["exam_date"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(duration_minutes__gte=1),
+                name="exam_duration_at_least_one",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(total_marks__gte=1),
+                name="exam_total_marks_at_least_one",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.title} - {self.course.title}"
+
+
+class Grade(models.Model):
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+    )
+    exam = models.ForeignKey(
+        Exam,
+        on_delete=models.CASCADE,
+        related_name="grades",
+    )
+    student = models.ForeignKey(
+        "accounts.Student",
+        on_delete=models.CASCADE,
+        related_name="exam_grades",
+    )
+    graded_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.PROTECT,
+        related_name="grades_awarded",
+    )
+    score = models.DecimalField(
+        max_digits=7,
+        decimal_places=2,
+        validators=[MinValueValidator(0)],
+    )
+    grade_letter = models.CharField(max_length=5, blank=True)
+    teacher_feedback = models.TextField(blank=True)
+    graded_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "grades"
+        ordering = ["-graded_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["exam", "student"],
+                name="unique_exam_student_grade",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(score__gte=0),
+                name="exam_grade_score_nonnegative",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.student} - {self.exam.title}: {self.score}"

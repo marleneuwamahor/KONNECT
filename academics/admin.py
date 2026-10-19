@@ -8,6 +8,16 @@ from .models import (
     Assignment,
     Submission,
 )
+from .models import (
+    Course,
+    Enrollment,
+    LiveSession,
+    Attendance,
+    Assignment,
+    Submission,
+    Exam,
+    Grade,
+)
 
 
 @admin.register(Course)
@@ -111,3 +121,38 @@ class SubmissionAdmin(admin.ModelAdmin):
     )
     autocomplete_fields = ("assignment", "student")
     readonly_fields = ("submitted_at",)
+
+@admin.register(Exam)
+class ExamAdmin(admin.ModelAdmin):
+    list_display = (
+        "title",
+        "course",
+        "exam_date",
+        "duration_minutes",
+        "total_marks",
+    )
+    list_filter = ("exam_date", "course")
+    search_fields = ("title", "course__title")
+    autocomplete_fields = ("course",)
+    ordering = ("exam_date",)
+
+
+@admin.register(Grade)
+class GradeAdmin(admin.ModelAdmin):
+    list_display = (
+        "exam",
+        "student",
+        "score",
+        "grade_letter",
+        "graded_by",
+        "graded_at",
+    )
+    list_filter = ("exam", "grade_letter", "graded_at")
+    search_fields = (
+        "exam__title",
+        "student__username",
+        "student__user__email",
+        "graded_by__email",
+    )
+    autocomplete_fields = ("exam", "student", "graded_by")
+    readonly_fields = ("graded_at",)
