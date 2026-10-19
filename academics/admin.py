@@ -1,6 +1,13 @@
 from django.contrib import admin
 
-from .models import Course, Enrollment, LiveSession, Attendance
+from .models import (
+    Course,
+    Enrollment,
+    LiveSession,
+    Attendance,
+    Assignment,
+    Submission,
+)
 
 
 @admin.register(Course)
@@ -66,3 +73,41 @@ class AttendanceAdmin(admin.ModelAdmin):
         "live_session__course__title",
     )
     readonly_fields = ("marked_at",)
+
+
+@admin.register(Assignment)
+class AssignmentAdmin(admin.ModelAdmin):
+    list_display = (
+        "title",
+        "course",
+        "type",
+        "due_at",
+        "max_score",
+    )
+    list_filter = ("type", "course", "due_at")
+    search_fields = (
+        "title",
+        "course__title",
+        "course__teacher__user__email",
+    )
+    autocomplete_fields = ("course",)
+    ordering = ("due_at",)
+
+
+@admin.register(Submission)
+class SubmissionAdmin(admin.ModelAdmin):
+    list_display = (
+        "assignment",
+        "student",
+        "score",
+        "submitted_at",
+    )
+    list_filter = ("assignment", "submitted_at")
+    search_fields = (
+        "assignment__title",
+        "student__username",
+        "student__user__email",
+        "student__user__full_name",
+    )
+    autocomplete_fields = ("assignment", "student")
+    readonly_fields = ("submitted_at",)

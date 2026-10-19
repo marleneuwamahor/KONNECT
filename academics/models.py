@@ -183,3 +183,80 @@ class Attendance(models.Model):
 
     def __str__(self):
         return f"{self.student} - {self.live_session}"
+    
+from django.core.validators import MinValueValidator
+
+
+class Assignment(models.Model):
+    class Type(models.TextChoices):
+        QUIZ = "quiz", "Quiz"
+        EXERCISE = "exercise", "Exercise"
+
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+    )
+    course = models.ForeignKey(
+        Course,
+        on_delete=models.CASCADE,
+        related_name="assignments",
+    )
+    type = models.CharField(
+        max_length=20,
+        choices=Type.choices,
+    )
+    title = models.CharField(max_length=255)
+    due_at = models.DateTimeField()
+    max_score = models.PositiveIntegerField(
+        validators=[MinValueValidator(1)],
+    )
+
+    class Meta:
+        db_table = "assignments"
+        ordering = ["due_at"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(max_score__gte=1),
+                name="assignment_max_score_at_least_one",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.title} - {self.course.title}"
+
+
+class Submission(models.Model):
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+    )
+    assignment = models.ForeignKey(
+        Assignment,
+        on_delete=models.CASCADE,
+        related_name="submissions",
+    )
+    student = models.ForeignKey(
+        "accounts.Student",
+        on_delete=models.CASCADE,
+        related_name="submissions",
+    )
+    answers = models.JSONField(
+        default=dict,
+        help_text="The student's submitted answers in JSON format.",
+    )
+    score = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0)],
+    )
+    teacher_feedback = models.TextField(blank=True)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "submissions"
+        ordering = ["-submitted_at"]
+
+    def __str__(self):
+        return f"{self.student} - {self.assignment.title}"
