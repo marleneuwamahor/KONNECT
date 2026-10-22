@@ -36,6 +36,10 @@ ALLOWED_HOSTS = [
 render_hostname = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
 if render_hostname:
     ALLOWED_HOSTS.append(render_hostname)
+# LiveKit Cloud configuration
+LIVEKIT_URL = os.environ.get("LIVEKIT_URL", "").strip()
+LIVEKIT_API_KEY = os.environ.get("LIVEKIT_API_KEY", "").strip()
+LIVEKIT_API_SECRET = os.environ.get("LIVEKIT_API_SECRET", "").strip()
 
 
 # Application definition
