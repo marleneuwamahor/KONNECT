@@ -107,7 +107,7 @@ class LiveSession(models.Model):
         related_name="live_sessions",
     )
 
-    # The 100ms room identifier used by the backend
+    #  The 100ms room identifier used by the backend
     provider_room_id = models.CharField(
         max_length=255,
         blank=True,
